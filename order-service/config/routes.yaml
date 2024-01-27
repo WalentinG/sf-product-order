@@ -1,0 +1,7 @@
+order:
+    resource: ../src/OrderController.php
+    type: attribute
+    defaults:
+        _platform: 'order-service-service'
+        _version: 'current'
+        _format: 'json'

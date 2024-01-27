@@ -1,0 +1,7 @@
+product:
+    resource: ../src/ProductController.php
+    type: attribute
+    defaults:
+        _platform: 'product-service-service'
+        _version: 'current'
+        _format: 'json'

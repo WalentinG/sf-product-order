@@ -1,0 +1,17 @@
+framework:
+    messenger:
+        transports:
+            product-event: '%env(PRODUCT_EVENT_TRANSPORT_DSN)%'
+            product-cmd: '%env(PRODUCT_CMD_TRANSPORT_DSN)%'
+
+        routing:
+            'Product\Messages\ProductAdded': product-event
+            'Product\Messages\ProductOrdered': product-event
+            'Product\Messages\OrderProductFailed': product-event
+
+when@test:
+    framework:
+        messenger:
+            transports:
+                product-event: 'test://?support_delay_stamp=true'
+                product-cmd: 'test://?support_delay_stamp=true'

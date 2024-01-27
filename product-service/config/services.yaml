@@ -1,0 +1,12 @@
+services:
+    _defaults:
+        autoconfigure: true
+        public: false
+        autowire: false
+
+    Support\:
+        exclude: '../support/Testing/*'
+        resource: '../support/*'
+
+    Product\:
+        resource: '../src/*'

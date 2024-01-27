@@ -1,0 +1,16 @@
+{
+    http_port 80
+    https_port 443
+}
+
+:80/products {
+    root * /var/www/product-service/public
+    file_server
+    php_fastcgi product-service:9000
+}
+
+:80/orders {
+    root * /var/www/order-service/public
+    file_server
+    php_fastcgi order-service:9000
+}

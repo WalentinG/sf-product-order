@@ -1,0 +1,126 @@
+networks:
+  rabbitmq:
+    external: false
+  caddy:
+    external: false
+
+x-product-service: &product-service-base
+  build:
+    context: .
+    dockerfile: ./Dockerfile
+    target: product-service
+  volumes:
+    - ./product-service:/var/www/product-service
+    - ./product-messages:/var/www/product-messages
+x-order-service: &order-service-base
+  build:
+    context: .
+    dockerfile: ./Dockerfile
+    target: order-service
+  volumes:
+    - ./order-service:/var/www/order-service
+    - ./product-messages:/var/www/product-messages
+services:
+  rabbitmq:
+    image: rabbitmq:3.9.12-management
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - rabbitmq
+  caddy:
+    image: caddy:latest
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./order-service:/var/www/order-service
+      - ./product-service:/var/www/product-service
+      - ./product-messages:/var/www/product-messages
+    ports:
+      - 8080:80
+    depends_on:
+      - product-service
+    networks:
+      - caddy
+
+  product-composer:
+    <<: *product-service-base
+    entrypoint: [ "composer", "install", "--no-scripts", "--no-progress" ]
+    deploy:
+      restart_policy:
+        condition: none
+    profiles: [ "product-init" ]
+  product-migration:
+    <<: *product-service-base
+    entrypoint: [ "php", "bin/console", "doctrine:migrations:migrate", "-n" ]
+    depends_on:
+      product-composer:
+        condition: service_completed_successfully
+    deploy:
+      restart_policy:
+        condition: none
+    profiles: [ "product-init" ]
+
+  product-service:
+    <<: *product-service-base
+    depends_on:
+      product-migration:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - caddy
+      - rabbitmq
+  product-consumer:
+    <<: *product-service-base
+    depends_on:
+      product-migration:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    entrypoint: [ "php", "bin/console", "messenger:consume", "product-cmd", "-vv" ]
+    networks:
+      - rabbitmq
+
+  order-composer:
+    <<: *order-service-base
+    entrypoint: [ "composer", "install", "--no-scripts", "--no-progress" ]
+    deploy:
+      restart_policy:
+        condition: none
+    profiles: [ "order-init" ]
+  order-migration:
+    <<: *order-service-base
+    entrypoint: [ "php", "bin/console", "doctrine:migrations:migrate", "-n" ]
+    depends_on:
+      order-composer:
+        condition: service_completed_successfully
+    deploy:
+      restart_policy:
+        condition: none
+    profiles: [ "order-init" ]
+
+  order-service:
+    <<: *order-service-base
+    depends_on:
+      order-migration:
+        condition: service_completed_successfully
+      rabbitmq:
+          condition: service_healthy
+    networks:
+      - caddy
+      - rabbitmq
+  order-consumer:
+    <<: *order-service-base
+    depends_on:
+      order-migration:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    entrypoint: [ "php", "bin/console", "messenger:consume", "product-event", "-vv" ]
+    networks:
+      - rabbitmq

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+composer dump-env test
+php bin/console doctrine:database:create
+php bin/console doctrine:migrations:migrate -n
+php bin/console cache:warmup
+php vendor/bin/simple-phpunit $*
+composer dump-env dev
+
